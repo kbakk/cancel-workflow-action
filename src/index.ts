@@ -26,6 +26,7 @@ async function main() {
   console.log(`Found token: ${token ? 'yes' : 'no'}`);
   const workflow_ids: number[] = [];
   const octokit = github.getOctokit(token);
+  let current_run_data;
 
   if (workflow_id) {
     // The user provided one or more workflow id
@@ -35,7 +36,7 @@ async function main() {
       .forEach(n => workflow_ids.push(n));
   } else if (GITHUB_RUN_ID) {
     // The user did not provide workflow id so derive from current run
-    const { current_run_data } = await octokit.actions.getWorkflowRun({
+    current_run_data = await octokit.actions.getWorkflowRun({
       owner,
       repo,
       run_id: Number(GITHUB_RUN_ID)
@@ -61,7 +62,12 @@ async function main() {
       );
       if (current_run_data) {
         runningWorkflows = runningWorkflows.filter(
-          workflow => new Date(workflow.created_at).getTime() < new Date(current_run_data.created_at).getTime()
+          (workflow) => {
+            const otherCreatedTime = new Date(workflow.created_at).getTime();
+            const currentCreatedTime = new Date(current_run_data.created_at).getTime();
+            console.log(`Other created=${otherCreatedTime}, this created=${currentCreatedTime}, filter=${otherCreatedTime<currentCreatedTime}`);
+            return otherCreatedTime<currentCreatedTime
+          }
         )
       };
       console.log(`Found ${runningWorkflows.length} runs in progress.`);
