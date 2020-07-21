@@ -35,12 +35,12 @@ async function main() {
       .forEach(n => workflow_ids.push(n));
   } else if (GITHUB_RUN_ID) {
     // The user did not provide workflow id so derive from current run
-    const { data } = await octokit.actions.getWorkflowRun({
+    const { current_run_data } = await octokit.actions.getWorkflowRun({
       owner,
       repo,
       run_id: Number(GITHUB_RUN_ID)
     });
-    workflow_ids.push(data.workflow_id);
+    workflow_ids.push(current_run_data.workflow_id);
   } else {
     throw new Error('Expected `workflow_id` input or `GITHUB_RUN_ID` env var');
   }
@@ -59,6 +59,11 @@ async function main() {
       const runningWorkflows = data.workflow_runs.filter(
         workflow => workflow.head_branch === branch && workflow.head_sha !== headSha && workflow.status !== 'completed'
       );
+      if (current_run_data) {
+        runningWorkflows = runningWorkflows.filter(
+          workflow => new Date(workflow.created_at).getTime() < new Date(current_run_data.created_at).getTime()
+        )
+      };
       console.log(`Found ${runningWorkflows.length} runs in progress.`);
       for (const {id, head_sha, status} of runningWorkflows) {
         console.log('Cancelling another run: ', {id, head_sha, status});
